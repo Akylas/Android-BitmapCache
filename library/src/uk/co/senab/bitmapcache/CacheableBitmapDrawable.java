@@ -116,7 +116,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
      */
     public synchronized boolean isBitmapValid() {
         Bitmap bitmap = getBitmap();
-        return null != bitmap && !bitmap.isRecycled();
+        return null != bitmap && !bitmap.isRecycled() && (isBeingDisplayed() || isReferencedByCache());
     }
 
     public synchronized boolean isBitmapMutable() {
