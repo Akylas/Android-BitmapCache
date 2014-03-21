@@ -1,0 +1,49 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.7.+'
+    }
+}
+apply plugin: 'android-library'
+
+repositories {
+    mavenCentral()
+}
+
+group = 'com.github.chrisbanes.bitmapcache'
+version = '2.4-SNAPSHOT'
+
+android {
+
+    compileSdkVersion 19
+    buildToolsVersion "19.0.1"
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+
+            java.srcDirs = ['src']
+
+
+            res.srcDirs = ['res']
+
+            assets {
+                srcDir 'assets'
+            }
+        }
+    }
+    lintOptions {
+        abortOnError false
+    }
+    release {
+        runProguard false
+        proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: 'disklrucache*.jar')
+    compile 'com.android.support:support-v4:19.0.+'
+}
