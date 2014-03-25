@@ -1023,10 +1023,10 @@ public class BitmapLruCache {
         InputStream getInputStream();
     }
 
-    static class FileInputStreamProvider implements InputStreamProvider {
+    public static class FileInputStreamProvider implements InputStreamProvider {
         final File mFile;
 
-        FileInputStreamProvider(File file) {
+        public FileInputStreamProvider(File file) {
             mFile = file;
         }
 
@@ -1041,10 +1041,10 @@ public class BitmapLruCache {
         }
     }
 
-    static class ByteArrayInputStreamProvider implements InputStreamProvider {
+    public static class ByteArrayInputStreamProvider implements InputStreamProvider {
         final byte[] array;
 
-        ByteArrayInputStreamProvider(byte[] array) {
+        public ByteArrayInputStreamProvider(byte[] array) {
             this.array = array;
         }
 
