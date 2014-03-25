@@ -23,6 +23,14 @@ android {
     compileSdkVersion 19
     buildToolsVersion "19.0.1"
 
+    defaultConfig {
+        minSdkVersion 10
+        targetSdkVersion 19
+        versionCode 1
+        versionName "1.0"
+        packageName "uk.co.senab.bitmapcache"
+    }
+
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
