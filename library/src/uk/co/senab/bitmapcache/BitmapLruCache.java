@@ -756,7 +756,12 @@ public class BitmapLruCache {
         final InputStream is = ip.getInputStream();
         // Decode the bounds so we know what size Bitmap to look for
         opts.inJustDecodeBounds = true;
-        BitmapFactory.decodeStream(is, null, opts);
+        if (is == null && ip instanceof ByteArrayInputStreamProvider) {
+            byte[] data = ((ByteArrayInputStreamProvider) ip).array;
+            BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+        } else {
+            BitmapFactory.decodeStream(is, null, opts);
+        }
         IoUtils.closeStream(is);
 
         // Turn off just decoding bounds
