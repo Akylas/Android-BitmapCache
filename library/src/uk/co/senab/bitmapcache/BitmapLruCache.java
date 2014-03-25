@@ -536,6 +536,7 @@ public class BitmapLruCache {
      */
     public CacheableBitmapDrawable put(final String url, final InputStream inputStream,
             final BitmapFactory.Options decodeOpts) {
+        if (inputStream == null) return null;
         checkNotOnMainThread();
 
         // First we need to save the stream contents to a temporary file, so it
