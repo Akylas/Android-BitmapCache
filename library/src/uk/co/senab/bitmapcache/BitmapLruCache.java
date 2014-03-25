@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -270,7 +271,7 @@ public class BitmapLruCache {
             try {
                 final String key = transformUrlForDiskCacheKey(url);
                 // Try and decode bitmap
-                result = decodeBitmap(new SnapshotInputStreamProvider(key), url, decodeOpts);
+                result = decodeBitmapToDrawable(new SnapshotInputStreamProvider(key), url, decodeOpts);
 
                 if (null != result) {
                     if (null != mMemoryCache) {
@@ -495,7 +496,7 @@ public class BitmapLruCache {
 
         if (null == mDiskCache) {
             // shortcut to avoid temporary storage on disk
-            CacheableBitmapDrawable d = decodeBitmap(new ByteArrayInputStreamProvider(data), url,
+            CacheableBitmapDrawable d = decodeBitmapToDrawable(new ByteArrayInputStreamProvider(data), url,
                     decodeOpts);
             if (null != d) {
                 if (null != mMemoryCache) {
@@ -553,7 +554,7 @@ public class BitmapLruCache {
 
         if (null != tmpFile) {
             // Try and decode File
-            d = decodeBitmap(new FileInputStreamProvider(tmpFile), url, decodeOpts);
+            d = decodeBitmapToDrawable(new FileInputStreamProvider(tmpFile), url, decodeOpts);
 
             if (d != null) {
                 if (null != mMemoryCache) {
@@ -697,12 +698,18 @@ public class BitmapLruCache {
         return null;
     }
 
-    private CacheableBitmapDrawable decodeBitmap(InputStreamProvider ip, String url,
+    private CacheableBitmapDrawable decodeBitmapToDrawable(InputStreamProvider ip, String url,
             BitmapFactory.Options opts) {
+        AtomicInteger source = new AtomicInteger(0);
+        Bitmap result = decodeBitmap(ip, opts, source);
+        return createCacheableBitmapDrawable(result, url, source.get());
+    }
 
+    public Bitmap decodeBitmap(InputStreamProvider ip, BitmapFactory.Options opts,
+                               AtomicInteger source) {
         Bitmap bm = null;
         InputStream is = null;
-        int source = CacheableBitmapDrawable.SOURCE_NEW;
+        source.set(CacheableBitmapDrawable.SOURCE_NEW);
 
         try {
             if (mRecyclePolicy.canInBitmap()) {
@@ -715,7 +722,7 @@ public class BitmapLruCache {
                     opts.inSampleSize = 1;
 
                     if (addInBitmapOptions(ip, opts)) {
-                        source = CacheableBitmapDrawable.SOURCE_INBITMAP;
+                        source.set(CacheableBitmapDrawable.SOURCE_INBITMAP);
                     }
                 }
             }
@@ -735,7 +742,7 @@ public class BitmapLruCache {
             IoUtils.closeStream(is);
         }
 
-        return createCacheableBitmapDrawable(bm, url, source);
+        return bm;
     }
 
     private boolean addInBitmapOptions(InputStreamProvider ip, BitmapFactory.Options opts) {
