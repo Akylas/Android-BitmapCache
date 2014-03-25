@@ -3,13 +3,16 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.7.+'
+        classpath 'com.android.tools.build:gradle:0.8.+'
     }
 }
 apply plugin: 'android-library'
 
 repositories {
     mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
 }
 
 group = 'com.github.chrisbanes.bitmapcache'
@@ -37,13 +40,11 @@ android {
     lintOptions {
         abortOnError false
     }
-    release {
-        runProguard false
-        proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
-    }
 }
 
+
+
 dependencies {
-    compile fileTree(dir: 'libs', include: 'disklrucache*.jar')
     compile 'com.android.support:support-v4:19.0.+'
+    compile 'com.jakewharton:disklrucache:2.0.1'
 }
