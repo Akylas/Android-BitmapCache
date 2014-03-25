@@ -706,11 +706,16 @@ public class BitmapLruCache {
         return createCacheableBitmapDrawable(result, url, source.get());
     }
 
+    public Bitmap decodeBitmap(InputStreamProvider ip, BitmapFactory.Options opts) {
+        return decodeBitmap(ip, opts, null);
+    }
     public Bitmap decodeBitmap(InputStreamProvider ip, BitmapFactory.Options opts,
                                AtomicInteger source) {
         Bitmap bm = null;
         InputStream is = null;
-        source.set(CacheableBitmapDrawable.SOURCE_NEW);
+        if (source != null) {
+            source.set(CacheableBitmapDrawable.SOURCE_NEW);
+        }
 
         try {
             if (mRecyclePolicy.canInBitmap()) {
@@ -722,7 +727,7 @@ public class BitmapLruCache {
                 if (opts.inSampleSize <= 1) {
                     opts.inSampleSize = 1;
 
-                    if (addInBitmapOptions(ip, opts)) {
+                    if (addInBitmapOptions(ip, opts) && source != null) {
                         source.set(CacheableBitmapDrawable.SOURCE_INBITMAP);
                     }
                 }
