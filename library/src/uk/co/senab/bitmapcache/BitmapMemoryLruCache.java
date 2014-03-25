@@ -16,6 +16,7 @@
 package uk.co.senab.bitmapcache;
 
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.support.v4.util.LruCache;
 
 import java.lang.ref.SoftReference;
@@ -70,7 +71,7 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
         }
     }
 
-    Bitmap getBitmapFromRemoved(final int width, final int height) {
+    public Bitmap getBitmapFromRemoved(final int width, final int height) {
         if (mRemovedEntries == null) {
             return null;
         }
@@ -91,6 +92,48 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
                         break;
                     }
                 } else {
+                    it.remove();
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+    private static boolean canUseForInBitmap(
+            CacheableBitmapDrawable candidate, BitmapFactory.Options targetOptions) {
+        int width = targetOptions.outWidth / targetOptions.inSampleSize;
+        int height = targetOptions.outHeight / targetOptions.inSampleSize;
+
+        return candidate.getIntrinsicWidth() == width && candidate.getIntrinsicHeight() == height;
+    }
+
+    public Bitmap getBitmapFromRemoved(BitmapFactory.Options options) {
+        if (mRemovedEntries == null) {
+            return null;
+        }
+
+        Bitmap result = null;
+
+        synchronized (mRemovedEntries) {
+            final Iterator<SoftReference<CacheableBitmapDrawable>> it = mRemovedEntries.iterator();
+            Bitmap item;
+
+            while (it.hasNext()) {
+                CacheableBitmapDrawable value = it.next().get();
+
+                if (value != null && value.isBitmapValid() && value.isBitmapMutable() && !value.isBeingDisplayed() && !value.isReferencedByCache()) {
+                    // Check to see it the item can be used for inBitmap
+                    if (canUseForInBitmap(value, options)) {
+                        result = value.getBitmap();
+
+                        // Remove from reusable set so it can't be used again
+                        it.remove();
+                        break;
+                    }
+                } else {
+                    // Remove from the set if the reference has been cleared.
                     it.remove();
                 }
             }
