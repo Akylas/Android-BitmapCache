@@ -16,7 +16,6 @@
 package uk.co.senab.bitmapcache;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.support.v4.util.LruCache;
 
 import java.lang.ref.SoftReference;
@@ -64,7 +63,7 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
         // Notify the wrapper that it's no longer being cached
         oldValue.setCached(false);
 
-        if (mRemovedEntries != null && oldValue.isBitmapValid() && oldValue.isBitmapMutable()) {
+        if (mRemovedEntries != null && canUseForInBitmap(oldValue)) {
             synchronized (mRemovedEntries) {
                 mRemovedEntries.add(new SoftReference<CacheableBitmapDrawable>(oldValue));
             }
@@ -84,9 +83,8 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
             while (it.hasNext()) {
                 CacheableBitmapDrawable value = it.next().get();
 
-                if (value != null && value.isBitmapValid() && value.isBitmapMutable() && !value.isBeingDisplayed() && !value.isReferencedByCache()) {
-                    if (value.getIntrinsicWidth() == width
-                            && value.getIntrinsicHeight() == height) {
+                if (canUseForInBitmap(value)) {
+                    if (canUseForInBitmapForSize(value, width, height)) {
                         it.remove();
                         result = value.getBitmap();
                         break;
@@ -99,47 +97,21 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
 
         return result;
     }
-
 
     private static boolean canUseForInBitmap(
-            CacheableBitmapDrawable candidate, BitmapFactory.Options targetOptions) {
-        int width = targetOptions.outWidth / targetOptions.inSampleSize;
-        int height = targetOptions.outHeight / targetOptions.inSampleSize;
-
-        return candidate.getIntrinsicWidth() == width && candidate.getIntrinsicHeight() == height;
+            CacheableBitmapDrawable candidate) {
+        return candidate != null &&
+                candidate.isBitmapValid() &&
+                candidate.isBitmapMutable() &&
+                !candidate.isBeingDisplayed() &&
+                !candidate.isReferencedByCache();
     }
 
-    public Bitmap getBitmapFromRemoved(BitmapFactory.Options options) {
-        if (mRemovedEntries == null) {
-            return null;
-        }
-
-        Bitmap result = null;
-
-        synchronized (mRemovedEntries) {
-            final Iterator<SoftReference<CacheableBitmapDrawable>> it = mRemovedEntries.iterator();
-            Bitmap item;
-
-            while (it.hasNext()) {
-                CacheableBitmapDrawable value = it.next().get();
-
-                if (value != null && value.isBitmapValid() && value.isBitmapMutable() && !value.isBeingDisplayed() && !value.isReferencedByCache()) {
-                    // Check to see it the item can be used for inBitmap
-                    if (canUseForInBitmap(value, options)) {
-                        result = value.getBitmap();
-
-                        // Remove from reusable set so it can't be used again
-                        it.remove();
-                        break;
-                    }
-                } else {
-                    // Remove from the set if the reference has been cleared.
-                    it.remove();
-                }
-            }
-        }
-
-        return result;
+    private static boolean canUseForInBitmapForSize(
+            CacheableBitmapDrawable candidate, int width, int height) {
+        return
+                candidate.getIntrinsicWidth() == width &&
+                candidate.getIntrinsicHeight() == height;
     }
 
     void trimMemory() {
