@@ -645,6 +645,12 @@ public class BitmapLruCache {
         }
     }
 
+    public void purgeMemoryCache() {
+        if (null != mMemoryCache) {
+            mMemoryCache.evictAll();
+        }
+    }
+
     public void purgeDiskCache() {
         try {
             mDiskCache.delete();
