@@ -1038,7 +1038,7 @@ public class BitmapLruCache {
         }
     }
 
-    interface InputStreamProvider {
+    public interface InputStreamProvider {
         InputStream getInputStream();
     }
 
