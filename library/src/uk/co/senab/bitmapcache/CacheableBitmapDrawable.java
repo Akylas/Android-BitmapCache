@@ -82,7 +82,6 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
             return;
         }
         try {
-            Log.d(LOG_TAG, "draw: " + mUrl);
             super.draw(canvas);
         } catch (RuntimeException re) {
             // A RuntimeException has been thrown, probably due to a recycled Bitmap. If we have
