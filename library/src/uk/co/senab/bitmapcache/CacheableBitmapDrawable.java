@@ -59,7 +59,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
 
     private final int mSource;
 
-    private boolean mReused = false;
+    private boolean mReused;
 
     public CacheableBitmapDrawable(String url, Resources resources, Bitmap bitmap,
             BitmapLruCache.RecyclePolicy recyclePolicy, int source) {
@@ -69,8 +69,10 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         mUrl = url;
         mRecyclePolicy = recyclePolicy;
         mDisplayingCount = 0;
+        mHasBeenDisplayed = false;
         mCacheCount = 0;
         mSource = source;
+        mReused = false;
     }
 
     @Override
