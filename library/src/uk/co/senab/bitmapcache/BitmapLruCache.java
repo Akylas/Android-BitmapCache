@@ -390,7 +390,9 @@ public class BitmapLruCache {
     public CacheableBitmapDrawable putInMemoryCache(final String url, final CacheableBitmapDrawable drawable,
                                                     Bitmap.CompressFormat compressFormat, int compressQuality) {
         if (null != mMemoryCache) {
-            mMemoryCache.put(drawable);
+            synchronized (mMemoryCache) {
+                mMemoryCache.put(drawable);
+            }
         }
         return drawable;
     }
@@ -560,7 +562,9 @@ public class BitmapLruCache {
             if (d != null) {
                 if (null != mMemoryCache) {
                     d.setCached(true);
-                    mMemoryCache.put(d.getUrl(), d);
+                    synchronized (mMemoryCache) {
+                        mMemoryCache.put(d.getUrl(), d);
+                    }
                 }
 
                 if (null != mDiskCache) {
@@ -594,7 +598,9 @@ public class BitmapLruCache {
      */
     public void remove(String url) {
         if (null != mMemoryCache) {
-            mMemoryCache.remove(url);
+            synchronized (mMemoryCache) {
+                mMemoryCache.remove(url);
+            }
         }
 
         if (null != mDiskCache) {
@@ -614,7 +620,9 @@ public class BitmapLruCache {
      */
     public void removeFromMemoryCache(String url) {
         if (null != mMemoryCache) {
-            mMemoryCache.remove(url);
+            synchronized (mMemoryCache) {
+                mMemoryCache.remove(url);
+            }
         }
     }
 
@@ -641,13 +649,17 @@ public class BitmapLruCache {
      */
     public void trimMemory() {
         if (null != mMemoryCache) {
-            mMemoryCache.trimMemory();
+            synchronized (mMemoryCache) {
+                mMemoryCache.trimMemory();
+            }
         }
     }
 
     public void purgeMemoryCache() {
         if (null != mMemoryCache) {
-            mMemoryCache.evictAll();
+            synchronized (mMemoryCache) {
+                mMemoryCache.evictAll();
+            }
         }
     }
 
@@ -779,14 +791,17 @@ public class BitmapLruCache {
         opts.inMutable = true;
 
         // Try and find Bitmap to use for inBitmap
-        Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
-        if (reusableBm != null) {
-            if (Constants.DEBUG) {
-                Log.i(Constants.LOG_TAG, "Using inBitmap");
+        synchronized (mMemoryCache) {
+            Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
+            if (reusableBm != null) {
+                if (Constants.DEBUG) {
+                    Log.i(Constants.LOG_TAG, "Using inBitmap");
+                }
+                SDK11.addInBitmapOption(opts, reusableBm);
+                return true;
             }
-            SDK11.addInBitmapOption(opts, reusableBm);
-            return true;
         }
+
 
         return false;
     }
