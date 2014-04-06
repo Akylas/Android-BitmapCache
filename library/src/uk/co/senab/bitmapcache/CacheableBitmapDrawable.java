@@ -238,7 +238,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         cancelCheckStateCallback();
 
         // We're not being referenced or used anywhere
-        if (mCacheCount <= 0 && mDisplayingCount <= 0 && isBitmapValid()) {
+        if (mCacheCount <= 0 && mDisplayingCount <= 0 && (isBitmapValid() || mReused)) {
 
             /**
              * If we have been displayed or we don't care whether we have
