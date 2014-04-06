@@ -84,9 +84,10 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
                 CacheableBitmapDrawable value = it.next().get();
 
                 if (canUseForInBitmap(value)) {
-                    if (canUseForInBitmapForSize(value, width, height)) {
-                        it.remove();
+                    if (canUseForInBitmapForSize(value, width, height) && !value.isBeingDisplayed() && !value.isReferencedByCache()) {
                         result = value.getBitmap();
+                        value.setReused();
+                        it.remove();
                         break;
                     }
                 } else {
@@ -102,9 +103,7 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
             CacheableBitmapDrawable candidate) {
         return candidate != null &&
                 candidate.isBitmapValid() &&
-                candidate.isBitmapMutable() &&
-                !candidate.isBeingDisplayed() &&
-                !candidate.isReferencedByCache();
+                candidate.isBitmapMutable();
     }
 
     private static boolean canUseForInBitmapForSize(

@@ -59,6 +59,8 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
 
     private final int mSource;
 
+    private boolean mReused = false;
+
     public CacheableBitmapDrawable(String url, Resources resources, Bitmap bitmap,
             BitmapLruCache.RecyclePolicy recyclePolicy, int source) {
         super(resources, bitmap);
@@ -73,7 +75,12 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
 
     @Override
     public void draw(Canvas canvas) {
+        if (mReused == true) {
+            Log.e(LOG_TAG, "trying to draw a reused bitmap: " + mUrl);
+            return;
+        }
         try {
+            Log.d(LOG_TAG, "draw: " + mUrl);
             super.draw(canvas);
         } catch (RuntimeException re) {
             // A RuntimeException has been thrown, probably due to a recycled Bitmap. If we have
@@ -116,7 +123,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
      */
     public synchronized boolean isBitmapValid() {
         Bitmap bitmap = getBitmap();
-        return null != bitmap && !bitmap.isRecycled();
+        return !mReused && null != bitmap && !bitmap.isRecycled();
     }
 
     public synchronized boolean isBitmapMutable() {
@@ -166,6 +173,16 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         }
         checkState();
     }
+
+    /**
+     * Used to signal to the wrapper that the attached bitmap has been reused.
+     */
+    synchronized void setReused() {
+        if (mReused == false) {
+            mReused = true;
+        }
+    }
+
 
     /**
      * Try to recycle if not referenced by cache or being displayed.
@@ -266,5 +283,4 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
             object.checkState(true);
         }
     }
-
 }
