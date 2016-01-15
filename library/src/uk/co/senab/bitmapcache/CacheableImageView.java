@@ -75,11 +75,15 @@ public class CacheableImageView extends ImageView {
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        onDrawableUnset(getDrawable());
+    }
+
+    @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-
-        // Will cause displayed bitmap wrapper to be 'free-able'
-        setImageDrawable(null);
+        onDrawableSet(getDrawable());
     }
 
 }
