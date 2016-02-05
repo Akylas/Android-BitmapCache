@@ -63,14 +63,14 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
         // Notify the wrapper that it's no longer being cached
         oldValue.setCached(false);
 
-        if (mRemovedEntries != null && oldValue.isBitmapValid() && oldValue.isBitmapMutable()) {
+        if (mRemovedEntries != null && canUseForInBitmap(oldValue)) {
             synchronized (mRemovedEntries) {
                 mRemovedEntries.add(new SoftReference<CacheableBitmapDrawable>(oldValue));
             }
         }
     }
 
-    Bitmap getBitmapFromRemoved(final int width, final int height) {
+    public Bitmap getBitmapFromRemoved(final int width, final int height) {
         if (mRemovedEntries == null) {
             return null;
         }
@@ -83,11 +83,11 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
             while (it.hasNext()) {
                 CacheableBitmapDrawable value = it.next().get();
 
-                if (value != null && value.isBitmapValid() && value.isBitmapMutable()) {
-                    if (value.getIntrinsicWidth() == width
-                            && value.getIntrinsicHeight() == height) {
-                        it.remove();
+                if (canUseForInBitmap(value)) {
+                    if (canUseForInBitmapForSize(value, width, height) && !value.isBeingDisplayed() && !value.isReferencedByCache()) {
                         result = value.getBitmap();
+                        value.setReused();
+                        it.remove();
                         break;
                     }
                 } else {
@@ -99,6 +99,20 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
         return result;
     }
 
+    private static boolean canUseForInBitmap(
+            CacheableBitmapDrawable candidate) {
+        return candidate != null &&
+                candidate.isBitmapValid() &&
+                candidate.isBitmapMutable();
+    }
+
+    private static boolean canUseForInBitmapForSize(
+            CacheableBitmapDrawable candidate, int width, int height) {
+        return
+                candidate.getIntrinsicWidth() == width &&
+                candidate.getIntrinsicHeight() == height;
+    }
+
     void trimMemory() {
         final Set<Entry<String, CacheableBitmapDrawable>> values = snapshot().entrySet();
 
@@ -108,6 +122,11 @@ final class BitmapMemoryLruCache extends LruCache<String, CacheableBitmapDrawabl
                 remove(entry.getKey());
             }
         }
+        
+        if (mRemovedEntries!=null) {
+            synchronized (mRemovedEntries) {
+                mRemovedEntries.clear();
+            }
+        }
     }
-
 }

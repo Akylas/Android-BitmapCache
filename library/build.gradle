@@ -1,0 +1,58 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.8.+'
+    }
+}
+apply plugin: 'android-library'
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+group = 'com.github.chrisbanes.bitmapcache'
+version = '2.4-SNAPSHOT'
+
+android {
+
+    compileSdkVersion 19
+    buildToolsVersion "19.0.1"
+
+    defaultConfig {
+        minSdkVersion 4
+        targetSdkVersion 19
+        versionCode 1
+        versionName "1.0"
+        packageName "uk.co.senab.bitmapcache"
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+
+            java.srcDirs = ['src']
+
+
+            res.srcDirs = ['res']
+
+            assets {
+                srcDir 'assets'
+            }
+        }
+    }
+    lintOptions {
+        abortOnError false
+    }
+}
+
+
+
+dependencies {
+    compile 'com.android.support:support-v4:19.0.+'
+    compile 'com.jakewharton:disklrucache:2.0.1'
+}

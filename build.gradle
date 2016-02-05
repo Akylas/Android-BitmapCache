@@ -1,0 +1,20 @@
+allprojects  {
+
+  group = 'com.github.chrisbanes.bitmapcache'
+  version = '2.4-SNAPSHOT'
+}
+
+subprojects {
+  sourceCompatibility = 1.5
+  targetCompatibility = 1.5
+
+  
+  repositories {
+    mavenLocal()
+  }
+
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.10'
+}

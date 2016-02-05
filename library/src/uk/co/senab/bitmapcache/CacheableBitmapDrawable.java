@@ -59,7 +59,9 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
 
     private final int mSource;
 
-    CacheableBitmapDrawable(String url, Resources resources, Bitmap bitmap,
+    private boolean mReused;
+
+    public CacheableBitmapDrawable(String url, Resources resources, Bitmap bitmap,
             BitmapLruCache.RecyclePolicy recyclePolicy, int source) {
         super(resources, bitmap);
 
@@ -67,12 +69,18 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         mUrl = url;
         mRecyclePolicy = recyclePolicy;
         mDisplayingCount = 0;
+        mHasBeenDisplayed = false;
         mCacheCount = 0;
         mSource = source;
+        mReused = false;
     }
 
     @Override
     public void draw(Canvas canvas) {
+        if (mReused == true) {
+            Log.e(LOG_TAG, "trying to draw a reused bitmap: " + mUrl);
+            return;
+        }
         try {
             super.draw(canvas);
         } catch (RuntimeException re) {
@@ -116,7 +124,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
      */
     public synchronized boolean isBitmapValid() {
         Bitmap bitmap = getBitmap();
-        return null != bitmap && !bitmap.isRecycled();
+        return !mReused && null != bitmap && !bitmap.isRecycled();
     }
 
     public synchronized boolean isBitmapMutable() {
@@ -167,6 +175,23 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         checkState();
     }
 
+    /**
+     * Used to signal to the wrapper that the attached bitmap has been reused.
+     */
+    synchronized void setReused() {
+        if (mReused == false) {
+            mReused = true;
+        }
+    }
+
+
+    /**
+     * Try to recycle if not referenced by cache or being displayed.
+     */
+    private void tryRecycle() {
+        checkState(false);
+    }
+
     private void cancelCheckStateCallback() {
         if (null != mCheckStateRunnable) {
             if (Constants.DEBUG) {
@@ -214,7 +239,7 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
         cancelCheckStateCallback();
 
         // We're not being referenced or used anywhere
-        if (mCacheCount <= 0 && mDisplayingCount <= 0 && isBitmapValid()) {
+        if (mCacheCount <= 0 && mDisplayingCount <= 0 && (isBitmapValid() || mReused)) {
 
             /**
              * If we have been displayed or we don't care whether we have
@@ -259,5 +284,4 @@ public class CacheableBitmapDrawable extends BitmapDrawable {
             object.checkState(true);
         }
     }
-
 }

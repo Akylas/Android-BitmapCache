@@ -16,8 +16,6 @@
 
 package uk.co.senab.bitmapcache;
 
-import com.jakewharton.disklrucache.DiskLruCache;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -28,6 +26,9 @@ import android.os.Looper;
 import android.os.Process;
 import android.util.Log;
 
+import com.jakewharton.disklrucache.DiskLruCache;
+
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -269,7 +271,7 @@ public class BitmapLruCache {
             try {
                 final String key = transformUrlForDiskCacheKey(url);
                 // Try and decode bitmap
-                result = decodeBitmap(new SnapshotInputStreamProvider(key), url, decodeOpts);
+                result = decodeBitmapToDrawable(new SnapshotInputStreamProvider(key), url, decodeOpts);
 
                 if (null != result) {
                     if (null != mMemoryCache) {
@@ -314,6 +316,16 @@ public class BitmapLruCache {
         }
 
         return result;
+    }
+
+
+    public Bitmap getBitmapFromRemoved(final int width, final int height) {
+        if (null != mMemoryCache) {
+            synchronized (mMemoryCache) {
+                return mMemoryCache.getBitmapFromRemoved(width, height);
+            }
+        }
+        return null;
     }
 
     /**
@@ -362,9 +374,48 @@ public class BitmapLruCache {
         CacheableBitmapDrawable d = new CacheableBitmapDrawable(url, mResources, bitmap,
                 mRecyclePolicy, CacheableBitmapDrawable.SOURCE_UNKNOWN);
 
+        putInMemoryCache(url, d, compressFormat, compressQuality);
+        putInDiskCache(url, d, compressFormat, compressQuality);
+        return d;
+    }
+
+    public CacheableBitmapDrawable putInMemoryCache(final String url, final Bitmap bitmap) {
+        return putInMemoryCache(url, bitmap, Bitmap.CompressFormat.PNG, 100);
+    }
+
+    public CacheableBitmapDrawable putInMemoryCache(final String url, final CacheableBitmapDrawable drawable) {
+        return putInMemoryCache(url, drawable, Bitmap.CompressFormat.PNG, 100);
+    }
+
+    public CacheableBitmapDrawable putInMemoryCache(final String url, final CacheableBitmapDrawable drawable,
+                                                    Bitmap.CompressFormat compressFormat, int compressQuality) {
         if (null != mMemoryCache) {
-            mMemoryCache.put(d);
+            synchronized (mMemoryCache) {
+                mMemoryCache.put(drawable);
+            }
         }
+        return drawable;
+    }
+
+    public CacheableBitmapDrawable putInMemoryCache(final String url, final Bitmap bitmap,
+                                       Bitmap.CompressFormat compressFormat, int compressQuality) {
+
+        CacheableBitmapDrawable d = new CacheableBitmapDrawable(url, mResources, bitmap,
+                mRecyclePolicy, CacheableBitmapDrawable.SOURCE_UNKNOWN);
+
+        return putInMemoryCache(url, d, compressFormat, compressQuality);
+    }
+
+    public CacheableBitmapDrawable putInDiskCache(final String url, final Bitmap bitmap) {
+        return putInDiskCache(url, bitmap, Bitmap.CompressFormat.PNG, 100);
+    }
+
+    public CacheableBitmapDrawable putInDiskCache(final String url, final CacheableBitmapDrawable drawable) {
+        return putInDiskCache(url, drawable, Bitmap.CompressFormat.PNG, 100);
+    }
+
+    public CacheableBitmapDrawable putInDiskCache(final String url, final CacheableBitmapDrawable drawable,
+                                                  Bitmap.CompressFormat compressFormat, int compressQuality) {
 
         if (null != mDiskCache) {
             checkNotOnMainThread();
@@ -378,7 +429,7 @@ public class BitmapLruCache {
             try {
                 DiskLruCache.Editor editor = mDiskCache.edit(key);
                 os = editor.newOutputStream(0);
-                bitmap.compress(compressFormat, compressQuality, os);
+                drawable.getBitmap().compress(compressFormat, compressQuality, os);
                 os.flush();
                 editor.commit();
             } catch (IOException e) {
@@ -390,9 +441,17 @@ public class BitmapLruCache {
             }
         }
 
-        return d;
+        return drawable;
     }
 
+    public CacheableBitmapDrawable putInDiskCache(final String url, final Bitmap bitmap,
+                                       Bitmap.CompressFormat compressFormat, int compressQuality) {
+
+        CacheableBitmapDrawable d = new CacheableBitmapDrawable(url, mResources, bitmap,
+                mRecyclePolicy, CacheableBitmapDrawable.SOURCE_UNKNOWN);
+
+        return putInDiskCache(url, d, compressFormat, compressQuality);
+    }
     /**
      * Caches resulting bitmap from {@code inputStream} for {@code url} into all enabled caches.
      * This version of the method should be preferred as it allows the original image contents to be
@@ -411,16 +470,67 @@ public class BitmapLruCache {
     }
 
     /**
-     * Caches resulting bitmap from {@code inputStream} for {@code url} into all enabled caches.
-     * This version of the method should be preferred as it allows the original image contents to be
-     * cached, rather than a re-compressed version. <p /> The contents of the InputStream will be
-     * copied to a temporary file, then the file will be decoded into a Bitmap, using the optional
-     * <code>decodeOpts</code>. Providing the decode worked: <ul> <li>If the memory cache is
-     * enabled, the decoded Bitmap will be cached to memory.</li> <li>If the disk cache is enabled,
-     * the contents of the original stream will be cached to disk.</li> </ul> <p/> You should not
-     * call this method from the main/UI thread.
-     *
-     * @param url         - String representing the URL of the image
+     * Caches resulting bitmap from {@code data} for {@code url} into all
+     * enabled caches. This version of the method should be preferred as it
+     * allows the original image contents to be cached, rather than a
+     * re-compressed version.
+     * <p />
+     * The contents of the array will be decoded into a Bitmap, using the
+     * optional <code>decodeOpts</code>. Providing the decode worked:
+     * <ul>
+     * <li>If the memory cache is enabled, the decoded Bitmap will be cached to
+     * memory.</li>
+     * <li>If the disk cache is enabled, a temporay version of the contents is
+     * copied to disk before decoding and then cached to disk.</li>
+     * </ul>
+     * <p/>
+     * You should not call this method from the main/UI thread.
+     * 
+     * @param url - String representing the URL of the image
+     * @param data - Raw data opened from {@code url}
+     * @param decodeOpts - Options used for decoding. This does not affect what
+     *            is cached in the disk cache (if enabled).
+     * @return CacheableBitmapDrawable which can be used to display the bitmap.
+     */
+    public CacheableBitmapDrawable put(final String url, final byte[] data,
+            final BitmapFactory.Options decodeOpts) {
+        checkNotOnMainThread();
+
+        if (null == mDiskCache) {
+            // shortcut to avoid temporary storage on disk
+            CacheableBitmapDrawable d = decodeBitmapToDrawable(new ByteArrayInputStreamProvider(data), url,
+                    decodeOpts);
+            if (null != d) {
+                if (null != mMemoryCache) {
+                    d.setCached(true);
+                    mMemoryCache.put(d.getUrl(), d);
+                }
+                return d;
+            }
+        }
+
+        return put(url, new ByteArrayInputStream(data), decodeOpts);
+    }
+
+    /**
+     * Caches resulting bitmap from {@code inputStream} for {@code url} into all
+     * enabled caches. This version of the method should be preferred as it
+     * allows the original image contents to be cached, rather than a
+     * re-compressed version.
+     * <p />
+     * The contents of the InputStream will be copied to a temporary file, then
+     * the file will be decoded into a Bitmap, using the optional
+     * <code>decodeOpts</code>. Providing the decode worked:
+     * <ul>
+     * <li>If the memory cache is enabled, the decoded Bitmap will be cached to
+     * memory.</li>
+     * <li>If the disk cache is enabled, the contents of the original stream
+     * will be cached to disk.</li>
+     * </ul>
+     * <p/>
+     * You should not call this method from the main/UI thread.
+     * 
+     * @param url - String representing the URL of the image
      * @param inputStream - InputStream opened from {@code url}
      * @param decodeOpts  - Options used for decoding. This does not affect what is cached in the
      *                    disk cache (if enabled).
@@ -428,6 +538,7 @@ public class BitmapLruCache {
      */
     public CacheableBitmapDrawable put(final String url, final InputStream inputStream,
             final BitmapFactory.Options decodeOpts) {
+        if (inputStream == null) return null;
         checkNotOnMainThread();
 
         // First we need to save the stream contents to a temporary file, so it
@@ -446,12 +557,14 @@ public class BitmapLruCache {
 
         if (null != tmpFile) {
             // Try and decode File
-            d = decodeBitmap(new FileInputStreamProvider(tmpFile), url, decodeOpts);
+            d = decodeBitmapToDrawable(new FileInputStreamProvider(tmpFile), url, decodeOpts);
 
             if (d != null) {
                 if (null != mMemoryCache) {
                     d.setCached(true);
-                    mMemoryCache.put(d.getUrl(), d);
+                    synchronized (mMemoryCache) {
+                        mMemoryCache.put(d.getUrl(), d);
+                    }
                 }
 
                 if (null != mDiskCache) {
@@ -485,9 +598,38 @@ public class BitmapLruCache {
      */
     public void remove(String url) {
         if (null != mMemoryCache) {
-            mMemoryCache.remove(url);
+            synchronized (mMemoryCache) {
+                mMemoryCache.remove(url);
+            }
         }
 
+        if (null != mDiskCache) {
+            checkNotOnMainThread();
+
+            try {
+                mDiskCache.remove(transformUrlForDiskCacheKey(url));
+                scheduleDiskCacheFlush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Removes the entry for {@code url} from memory, if it exists. <p/>
+     */
+    public void removeFromMemoryCache(String url) {
+        if (null != mMemoryCache) {
+            synchronized (mMemoryCache) {
+                mMemoryCache.remove(url);
+            }
+        }
+    }
+
+    /**
+     * Removes the entry for {@code url} from disk cache, if it exists. <p/> You should not call this method from main/UI thread.
+     */
+    public void removeFromDiskCache(String url) {
         if (null != mDiskCache) {
             checkNotOnMainThread();
 
@@ -507,7 +649,28 @@ public class BitmapLruCache {
      */
     public void trimMemory() {
         if (null != mMemoryCache) {
-            mMemoryCache.trimMemory();
+            synchronized (mMemoryCache) {
+                mMemoryCache.trimMemory();
+            }
+        }
+    }
+
+    public void purgeMemoryCache() {
+        if (null != mMemoryCache) {
+            synchronized (mMemoryCache) {
+                mMemoryCache.evictAll();
+            }
+        }
+    }
+
+    public void purgeDiskCache() {
+        if (null != mDiskCache) {
+            checkNotOnMainThread();
+            try {
+                mDiskCache.delete();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -549,12 +712,31 @@ public class BitmapLruCache {
                         TimeUnit.SECONDS);
     }
 
-    private CacheableBitmapDrawable decodeBitmap(InputStreamProvider ip, String url,
-            BitmapFactory.Options opts) {
+    public CacheableBitmapDrawable createCacheableBitmapDrawable(Bitmap bitmap, String url, int source)
+    {
+        if (bitmap != null) {
+            return new CacheableBitmapDrawable(url, mResources, bitmap, mRecyclePolicy, source);
+        }
+        return null;
+    }
 
+    private CacheableBitmapDrawable decodeBitmapToDrawable(InputStreamProvider ip, String url,
+            BitmapFactory.Options opts) {
+        AtomicInteger source = new AtomicInteger(0);
+        Bitmap result = decodeBitmap(ip, opts, source);
+        return createCacheableBitmapDrawable(result, url, source.get());
+    }
+
+    public Bitmap decodeBitmap(InputStreamProvider ip, BitmapFactory.Options opts) {
+        return decodeBitmap(ip, opts, null);
+    }
+    public Bitmap decodeBitmap(InputStreamProvider ip, BitmapFactory.Options opts,
+                               AtomicInteger source) {
         Bitmap bm = null;
         InputStream is = null;
-        int source = CacheableBitmapDrawable.SOURCE_NEW;
+        if (source != null) {
+            source.set(CacheableBitmapDrawable.SOURCE_NEW);
+        }
 
         try {
             if (mRecyclePolicy.canInBitmap()) {
@@ -566,8 +748,8 @@ public class BitmapLruCache {
                 if (opts.inSampleSize <= 1) {
                     opts.inSampleSize = 1;
 
-                    if (addInBitmapOptions(ip, opts)) {
-                        source = CacheableBitmapDrawable.SOURCE_INBITMAP;
+                    if (addInBitmapOptions(ip, opts) && source != null) {
+                        source.set(CacheableBitmapDrawable.SOURCE_INBITMAP);
                     }
                 }
             }
@@ -575,17 +757,19 @@ public class BitmapLruCache {
             // Get InputStream for actual decode
             is = ip.getInputStream();
             // Decode stream
-            bm = BitmapFactory.decodeStream(is, null, opts);
+            if (is == null && ip instanceof ByteArrayInputStreamProvider) {
+                byte[] data = ((ByteArrayInputStreamProvider) ip).array;
+                bm = BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+            } else {
+                bm = BitmapFactory.decodeStream(is, null, opts);
+            }
         } catch (Exception e) {
             Log.e(Constants.LOG_TAG, "Unable to decode stream",  e);
         } finally {
             IoUtils.closeStream(is);
         }
 
-        if (bm != null) {
-            return new CacheableBitmapDrawable(url, mResources, bm, mRecyclePolicy, source);
-        }
-        return null;
+        return bm;
     }
 
     private boolean addInBitmapOptions(InputStreamProvider ip, BitmapFactory.Options opts) {
@@ -593,7 +777,12 @@ public class BitmapLruCache {
         final InputStream is = ip.getInputStream();
         // Decode the bounds so we know what size Bitmap to look for
         opts.inJustDecodeBounds = true;
-        BitmapFactory.decodeStream(is, null, opts);
+        if (is == null && ip instanceof ByteArrayInputStreamProvider) {
+            byte[] data = ((ByteArrayInputStreamProvider) ip).array;
+            BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+        } else {
+            BitmapFactory.decodeStream(is, null, opts);
+        }
         IoUtils.closeStream(is);
 
         // Turn off just decoding bounds
@@ -602,14 +791,17 @@ public class BitmapLruCache {
         opts.inMutable = true;
 
         // Try and find Bitmap to use for inBitmap
-        Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
-        if (reusableBm != null) {
-            if (Constants.DEBUG) {
-                Log.i(Constants.LOG_TAG, "Using inBitmap");
+        synchronized (mMemoryCache) {
+            Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
+            if (reusableBm != null) {
+                if (Constants.DEBUG) {
+                    Log.i(Constants.LOG_TAG, "Using inBitmap");
+                }
+                SDK11.addInBitmapOption(opts, reusableBm);
+                return true;
             }
-            SDK11.addInBitmapOption(opts, reusableBm);
-            return true;
         }
+
 
         return false;
     }
@@ -861,14 +1053,14 @@ public class BitmapLruCache {
         }
     }
 
-    interface InputStreamProvider {
+    public interface InputStreamProvider {
         InputStream getInputStream();
     }
 
-    static class FileInputStreamProvider implements InputStreamProvider {
+    public static class FileInputStreamProvider implements InputStreamProvider {
         final File mFile;
 
-        FileInputStreamProvider(File file) {
+        public FileInputStreamProvider(File file) {
             mFile = file;
         }
 
@@ -879,6 +1071,24 @@ public class BitmapLruCache {
             } catch (FileNotFoundException e) {
                 Log.e(Constants.LOG_TAG, "Could not decode file: " + mFile.getAbsolutePath(), e);
             }
+            return null;
+        }
+    }
+
+    public static class ByteArrayInputStreamProvider implements InputStreamProvider {
+        final byte[] array;
+
+        public ByteArrayInputStreamProvider(byte[] array) {
+            this.array = array;
+        }
+
+        /**
+         * Do Not Use this, doesn't work with
+         * {@link BitmapFactory#decodeStream(InputStream, android.graphics.Rect, android.graphics.BitmapFactory.Options)
+         * BitmapFactory.decodeStream} with an {@link ByteArrayInputStream}
+         */
+        @Override
+        public InputStream getInputStream() {
             return null;
         }
     }
