@@ -53,6 +53,7 @@ android {
 
 
 dependencies {
-    compile 'com.android.support:support-v4:19.0.+'
-    compile 'com.jakewharton:disklrucache:2.0.1'
+    // Note that all modules in an android project must use same support-lib version.
+    compile 'com.android.support:support-v4:23.1.1'
+    compile 'com.jakewharton:disklrucache:2.0.2'
 }

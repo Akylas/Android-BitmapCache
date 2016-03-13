@@ -791,17 +791,18 @@ public class BitmapLruCache {
         opts.inMutable = true;
 
         // Try and find Bitmap to use for inBitmap
-        synchronized (mMemoryCache) {
-            Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
-            if (reusableBm != null) {
-                if (Constants.DEBUG) {
-                    Log.i(Constants.LOG_TAG, "Using inBitmap");
+        if (mMemoryCache != null) {
+            synchronized (mMemoryCache) {
+                Bitmap reusableBm = mMemoryCache.getBitmapFromRemoved(opts.outWidth, opts.outHeight);
+                if (reusableBm != null) {
+                    if (Constants.DEBUG) {
+                        Log.i(Constants.LOG_TAG, "Using inBitmap");
+                    }
+                    SDK11.addInBitmapOption(opts, reusableBm);
+                    return true;
                 }
-                SDK11.addInBitmapOption(opts, reusableBm);
-                return true;
             }
         }
-
 
         return false;
     }
@@ -855,7 +856,7 @@ public class BitmapLruCache {
 
         private int mMemoryCacheMaxSize;
 
-        private RecyclePolicy mRecyclePolicy;
+        private RecyclePolicy mRecyclePolicy = DEFAULT_RECYCLE_POLICY;
 
         /**
          * @deprecated You should now use {@link Builder(Context)}. This is so that we can reliably
@@ -889,6 +890,8 @@ public class BitmapLruCache {
                     Log.d("BitmapLruCache.Builder", "Creating Memory Cache");
                 }
                 cache.setMemoryCache(new BitmapMemoryLruCache(mMemoryCacheMaxSize, mRecyclePolicy));
+            } else {
+                cache.mRecyclePolicy = mRecyclePolicy;
             }
 
             if (isValidOptionsForDiskCache()) {
